@@ -66,10 +66,13 @@ export default class SimpleCarController {
                 case 'up':
                     this.simpleCar.vehicle.setWheelForce(this.maxForce, 0)
                     this.simpleCar.vehicle.setWheelForce(this.maxForce, 1)
+                    // Start engine audio on user throttle
+                    if (this.simpleCar && this.simpleCar.startEngine) this.simpleCar.startEngine()
                     break
                 case 'down':
                     this.simpleCar.vehicle.setWheelForce(-this.maxForce * 0.6, 0)
                     this.simpleCar.vehicle.setWheelForce(-this.maxForce * 0.6, 1)
+                    if (this.simpleCar && this.simpleCar.startEngine) this.simpleCar.startEngine()
                     break
                 case 'left':
                     this.simpleCar.vehicle.setSteeringValue(this.maxSteerVal, 2)
@@ -323,6 +326,7 @@ export default class SimpleCarController {
                     // Drive both rear wheels in the same direction
                     this.simpleCar.vehicle.setWheelForce(this.maxForce, 0)
                     this.simpleCar.vehicle.setWheelForce(this.maxForce, 1)
+                    if (this.simpleCar && this.simpleCar.startEngine) this.simpleCar.startEngine()
                     break
 
                 case 's':
