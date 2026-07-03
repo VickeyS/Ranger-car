@@ -165,3 +165,80 @@ body {
 }
 
 /* Reset button removed - using keyboard R to reload */
+
+/* Joystick */
+#joystick {
+    position: fixed;
+    left: 18px;
+    bottom: 28px;
+    width: 120px;
+    height: 120px;
+    border-radius: 50%;
+    background: rgba(0, 0, 0, 0.18);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    pointer-events: auto;
+    z-index: 1001;
+}
+
+#joystick .stick {
+    width: 56px;
+    height: 56px;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.12);
+    border: 2px solid rgba(255, 255, 255, 0.18);
+    transform: translate(0, 0);
+    touch-action: none;
+}
+
+/* Menu */
+#menu-btn {
+    position: fixed;
+    top: 12px;
+    right: 12px;
+    z-index: 1100;
+    width: 44px;
+    height: 44px;
+    border-radius: 8px;
+    background: rgba(0, 0, 0, 0.6);
+    color: #fff;
+    border: none;
+    font-size: 20px;
+}
+
+#pause-menu {
+    position: fixed;
+    inset: 0;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    background: rgba(0, 0, 0, 0.45);
+    z-index: 1200;
+}
+
+.menu-card {
+    background: #fff;
+    color: #222;
+    padding: 20px;
+    border-radius: 12px;
+    min-width: 220px;
+    text-align: center;
+}
+
+.menu-card button {
+    display: block;
+    margin: 10px auto;
+    padding: 8px 12px;
+    border-radius: 8px;
+    border: none;
+    background: #00BFA5;
+    color: #fff;
+}
+
+/* Hide joystick on wide screens */
+@media (min-width: 900px) {
+    #joystick {
+        display: none;
+    }
+}

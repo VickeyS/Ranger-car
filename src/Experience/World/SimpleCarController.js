@@ -28,6 +28,39 @@ export default class SimpleCarController {
         this.setSteering()
         this.setupGroundDetection()
         this.setupTouchControls()
+
+        // Controller smoothing state
+        this.targetForce = 0
+        this.currentForce = 0
+        this.targetSteer = 0
+        this.currentSteer = 0
+        this.paused = false
+
+        // Start RAF update loop to smoothly apply forces
+        this.updateLoop = this.updateLoop.bind(this)
+        requestAnimationFrame(this.updateLoop)
+    }
+
+    updateLoop() {
+        if (!this.paused && this.simpleCar && this.simpleCar.vehicle) {
+            // Smoothly interpolate force and steering
+            const lerp = (a, b, t) => a + (b - a) * t
+            this.currentForce = lerp(this.currentForce, this.targetForce, 0.08)
+            this.currentSteer = lerp(this.currentSteer, this.targetSteer, 0.12)
+
+            // Apply forces to vehicle wheels
+            try {
+                this.simpleCar.vehicle.setWheelForce(this.currentForce, 0)
+                this.simpleCar.vehicle.setWheelForce(this.currentForce, 1)
+                // Apply steering to front wheels
+                this.simpleCar.vehicle.setSteeringValue(this.currentSteer, 2)
+                this.simpleCar.vehicle.setSteeringValue(this.currentSteer, 3)
+            } catch (e) {
+                // vehicle not ready yet
+            }
+        }
+
+        requestAnimationFrame(this.updateLoop)
     }
 
     setupTouchControls() {
@@ -64,23 +97,19 @@ export default class SimpleCarController {
         const actionDown = (action) => {
             switch (action) {
                 case 'up':
-                    this.simpleCar.vehicle.setWheelForce(this.maxForce, 0)
-                    this.simpleCar.vehicle.setWheelForce(this.maxForce, 1)
+                    this.targetForce = this.maxForce
                     // Start engine audio on user throttle
                     if (this.simpleCar && this.simpleCar.startEngine) this.simpleCar.startEngine()
                     break
                 case 'down':
-                    this.simpleCar.vehicle.setWheelForce(-this.maxForce * 0.6, 0)
-                    this.simpleCar.vehicle.setWheelForce(-this.maxForce * 0.6, 1)
+                    this.targetForce = -this.maxForce * 0.6
                     if (this.simpleCar && this.simpleCar.startEngine) this.simpleCar.startEngine()
                     break
                 case 'left':
-                    this.simpleCar.vehicle.setSteeringValue(this.maxSteerVal, 2)
-                    this.simpleCar.vehicle.setSteeringValue(this.maxSteerVal, 3)
+                    this.targetSteer = this.maxSteerVal
                     break
                 case 'right':
-                    this.simpleCar.vehicle.setSteeringValue(-this.maxSteerVal, 2)
-                    this.simpleCar.vehicle.setSteeringValue(-this.maxSteerVal, 3)
+                    this.targetSteer = -this.maxSteerVal
                     break
                 case 'jump':
                     this.jumpCar()
@@ -104,13 +133,11 @@ export default class SimpleCarController {
             switch (action) {
                 case 'up':
                 case 'down':
-                    this.simpleCar.vehicle.setWheelForce(0, 0)
-                    this.simpleCar.vehicle.setWheelForce(0, 1)
+                    this.targetForce = 0
                     break
                 case 'left':
                 case 'right':
-                    this.simpleCar.vehicle.setSteeringValue(0, 2)
-                    this.simpleCar.vehicle.setSteeringValue(0, 3)
+                    this.targetSteer = 0
                     break
             }
         }
@@ -129,6 +156,90 @@ export default class SimpleCarController {
             // pointer leave (finger slides away)
             btn.addEventListener('mouseleave', (e) => { actionUp(action) })
         })
+
+        // Joystick handling
+        const joystick = document.getElementById('joystick')
+        const stick = joystick ? joystick.querySelector('.stick') : null
+        if (joystick && stick) {
+            let dragging = false
+            let origin = { x: 0, y: 0 }
+
+            const clamp = (v, min, max) => Math.max(min, Math.min(max, v))
+
+            const onDown = (e) => {
+                dragging = true
+                const rect = joystick.getBoundingClientRect()
+                origin.x = rect.left + rect.width / 2
+                origin.y = rect.top + rect.height / 2
+                stick.style.transition = '0s'
+                e.preventDefault()
+            }
+
+            const onMove = (e) => {
+                if (!dragging) return
+                const point = e.touches ? e.touches[0] : e
+                const dx = (point.clientX - origin.x)
+                const dy = (point.clientY - origin.y)
+                const max = joystick.clientWidth / 2 - 12
+                const nx = clamp(dx / max, -1, 1)
+                const ny = clamp(dy / max, -1, 1)
+
+                // Update stick visual
+                stick.style.transform = `translate(${nx * 40}px, ${ny * 40}px)`
+
+                // Map to control: up is negative ny
+                this.targetForce = -ny * this.maxForce
+                this.targetSteer = -nx * this.maxSteerVal
+
+                if (Math.abs(this.targetForce) > 0.01 && this.simpleCar && this.simpleCar.startEngine) this.simpleCar.startEngine()
+                e.preventDefault()
+            }
+
+            const onUp = (e) => {
+                dragging = false
+                stick.style.transition = '200ms'
+                stick.style.transform = 'translate(0,0)'
+                this.targetForce = 0
+                this.targetSteer = 0
+            }
+
+            stick.addEventListener('pointerdown', onDown)
+            window.addEventListener('pointermove', onMove)
+            window.addEventListener('pointerup', onUp)
+
+            // touch fallback
+            stick.addEventListener('touchstart', onDown, { passive: false })
+            window.addEventListener('touchmove', onMove, { passive: false })
+            window.addEventListener('touchend', onUp)
+        }
+
+        // Menu button wiring
+        const menuBtn = document.getElementById('menu-btn')
+        const pauseMenu = document.getElementById('pause-menu')
+        const resumeBtn = document.getElementById('resume-btn')
+        const settingsBtn = document.getElementById('settings-btn')
+        if (menuBtn && pauseMenu) {
+            menuBtn.addEventListener('click', () => {
+                this.paused = true
+                pauseMenu.hidden = false
+            })
+        }
+        if (resumeBtn && pauseMenu) {
+            resumeBtn.addEventListener('click', () => {
+                this.paused = false
+                pauseMenu.hidden = true
+            })
+        }
+        if (settingsBtn) {
+            settingsBtn.addEventListener('click', () => {
+                // Open the existing GUI if available
+                if (this.experience && this.experience.gameSettings && this.experience.gameSettings.debug) {
+                    // Toggle GUI visibility if such API exists, otherwise just hide menu
+                }
+                this.paused = false
+                if (pauseMenu) pauseMenu.hidden = true
+            })
+        }
     }
 
     setupGroundDetection() {
