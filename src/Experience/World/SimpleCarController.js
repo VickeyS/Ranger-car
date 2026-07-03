@@ -34,7 +34,6 @@ export default class SimpleCarController {
         this.currentForce = 0
         this.targetSteer = 0
         this.currentSteer = 0
-        this.paused = false
 
         // Start RAF update loop to smoothly apply forces
         this.updateLoop = this.updateLoop.bind(this)
@@ -213,33 +212,6 @@ export default class SimpleCarController {
             window.addEventListener('touchend', onUp)
         }
 
-        // Menu button wiring
-        const menuBtn = document.getElementById('menu-btn')
-        const pauseMenu = document.getElementById('pause-menu')
-        const resumeBtn = document.getElementById('resume-btn')
-        const settingsBtn = document.getElementById('settings-btn')
-        if (menuBtn && pauseMenu) {
-            menuBtn.addEventListener('click', () => {
-                this.paused = true
-                pauseMenu.hidden = false
-            })
-        }
-        if (resumeBtn && pauseMenu) {
-            resumeBtn.addEventListener('click', () => {
-                this.paused = false
-                pauseMenu.hidden = true
-            })
-        }
-        if (settingsBtn) {
-            settingsBtn.addEventListener('click', () => {
-                // Open the existing GUI if available
-                if (this.experience && this.experience.gameSettings && this.experience.gameSettings.debug) {
-                    // Toggle GUI visibility if such API exists, otherwise just hide menu
-                }
-                this.paused = false
-                if (pauseMenu) pauseMenu.hidden = true
-            })
-        }
     }
 
     setupGroundDetection() {
