@@ -26,20 +26,70 @@ body {
     right: 12px;
     display: flex;
     justify-content: space-between;
-    align-items: flex-end;
+    align-items: flex-start;
+    flex-wrap: wrap;
+    gap: 10px;
     pointer-events: none;
     /* allow children to handle events */
     z-index: 1000;
 }
 
-#mobile-controls .dpad {
+.left-controls {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 12px;
     pointer-events: auto;
+    min-width: 150px;
 }
 
-#mobile-controls .dpad .dpad-row {
+.design-card {
     display: flex;
+    align-items: center;
+    justify-content: center;
     gap: 8px;
-    margin-top: 6px;
+    background: rgba(0, 0, 0, 0.35);
+    padding: 8px 10px;
+    border-radius: 14px;
+    border: 1px solid rgba(255, 255, 255, 0.12);
+}
+
+#design-label {
+    min-width: auto;
+    padding: 8px 10px;
+    font-size: 14px;
+    text-align: center;
+    background: rgba(0, 0, 0, 0.65);
+    color: #fff;
+    border-radius: 10px;
+    position: relative;
+}
+
+#design-label::before {
+    content: '<';
+    margin-right: 4px;
+}
+
+#design-label::after {
+    content: '>';
+    margin-left: 4px;
+}
+
+.design-controls {
+    display: none;
+}
+
+#joystick {
+    width: 120px;
+    height: 120px;
+    border-radius: 50%;
+    background: rgba(0, 0, 0, 0.18);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    pointer-events: auto;
+    margin: 0;
+    flex-shrink: 0;
 }
 
 #mobile-controls .actions {
@@ -54,6 +104,7 @@ body {
     align-items: center;
     gap: 8px;
     pointer-events: auto;
+    flex: 1 1 auto;
 }
 
 #design-label {
@@ -168,9 +219,6 @@ body {
 
 /* Joystick */
 #joystick {
-    position: fixed;
-    left: 18px;
-    bottom: 28px;
     width: 120px;
     height: 120px;
     border-radius: 50%;
@@ -179,7 +227,8 @@ body {
     justify-content: center;
     align-items: center;
     pointer-events: auto;
-    z-index: 1001;
+    margin-right: 8px;
+    flex-shrink: 0;
 }
 
 #joystick .stick {
