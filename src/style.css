@@ -49,6 +49,23 @@ body {
     pointer-events: auto;
 }
 
+.design-controls {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    pointer-events: auto;
+}
+
+#design-label {
+    min-width: 80px;
+    text-align: center;
+    background: rgba(0, 0, 0, 0.5);
+    color: #fff;
+    padding: 6px 10px;
+    border-radius: 8px;
+    font-size: 14px;
+}
+
 .ctl {
     background: rgba(0, 0, 0, 0.5);
     color: white;

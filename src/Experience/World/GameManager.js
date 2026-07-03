@@ -9,7 +9,7 @@ export default class GameManager {
         this.experience = new Experience()
         this.scene = this.experience.scene
         this.time = this.experience.time
-        
+
         // Game state
         this.state = 'ready' // ready, playing, paused, gameOver
         this.score = 0
@@ -20,7 +20,7 @@ export default class GameManager {
         this.timeLimit = 120
         this.bestScore = this.loadBestScore()
         this.lastUpdate = 0
-        
+
         // Lap tracking
         this.currentLap = 1
         this.maxLaps = 3
@@ -36,37 +36,37 @@ export default class GameManager {
         this.lastStartFinishSide = null
         this.lastLapCrossTime = 0
         this.lapCompleteBonus = 100
-        
+
         // Combo system
         this.combo = 0
         this.comboTimer = 0
         this.comboTimeout = 2.0 // seconds to keep combo
         this.lastCoinTime = 0
-        
+
         // Settings (can be updated from GameSettings)
         this.settings = {
             coinValue: 10,
             timeLimit: 120
         }
-        
+
         // Collectibles
         this.collectibles = []
         this.collectibleGroup = new THREE.Group()
         this.scene.add(this.collectibleGroup)
-        
+
         // Audio context for sounds (if supported)
         this.setupAudio()
-        
+
         // Create UI
         this.createUI()
-        
+
         // Spawn initial coins
         this.spawnCoins()
-        
+
         // Bind keyboard events
         this.bindEvents()
     }
-    
+
     setupAudio() {
         // Simple audio context for coin sounds
         try {
@@ -75,30 +75,30 @@ export default class GameManager {
             this.audioContext = null
         }
     }
-    
+
     playSound(frequency = 800, duration = 0.1, type = 'square') {
         if (!this.audioContext) return
-        
+
         try {
             const oscillator = this.audioContext.createOscillator()
             const gainNode = this.audioContext.createGain()
-            
+
             oscillator.connect(gainNode)
             gainNode.connect(this.audioContext.destination)
-            
+
             oscillator.frequency.value = frequency
             oscillator.type = type
-            
+
             gainNode.gain.setValueAtTime(0.3, this.audioContext.currentTime)
             gainNode.gain.exponentialRampToValueAtTime(0.01, this.audioContext.currentTime + duration)
-            
+
             oscillator.start(this.audioContext.currentTime)
             oscillator.stop(this.audioContext.currentTime + duration)
         } catch (e) {
             // Audio failed silently
         }
     }
-    
+
     bindEvents() {
         window.addEventListener('keydown', (e) => {
             if (e.code === 'Space' && this.state === 'ready') {
@@ -119,7 +119,7 @@ export default class GameManager {
         // Remove old UI if exists
         const oldUI = document.getElementById('game-ui')
         if (oldUI) oldUI.remove()
-        
+
         // Main game UI container
         this.uiContainer = document.createElement('div')
         this.uiContainer.id = 'game-ui'
@@ -133,6 +133,7 @@ export default class GameManager {
                     <div>SPACE Jump • B Boost • C Color</div>
                 </div>
                 <div class="start-prompt">Press SPACE to Start</div>
+                <button id="start-button" class="start-button">START</button>
                 <div class="best-score">🏆 Best: <span id="best-score-value">0</span></div>
             </div>
             
@@ -179,19 +180,19 @@ export default class GameManager {
             </div>
         `
         document.body.appendChild(this.uiContainer)
-        
+
         // Add styles
         this.addStyles()
-        
+
         // Update best score display
         document.getElementById('best-score-value').textContent = this.bestScore
     }
-    
+
     addStyles() {
         // Remove old styles if exist
         const oldStyle = document.getElementById('game-styles')
         if (oldStyle) oldStyle.remove()
-        
+
         const style = document.createElement('style')
         style.id = 'game-styles'
         style.textContent = `
@@ -219,6 +220,7 @@ export default class GameManager {
                 background: rgba(0, 0, 0, 0.7);
                 color: white;
                 text-align: center;
+                pointer-events: auto; /* allow buttons inside screens to be interactive */
             }
             
             .hidden {
@@ -258,6 +260,21 @@ export default class GameManager {
                 color: #4ADE80;
                 animation: blink 1s ease infinite;
             }
+
+            /* Start button */
+            .start-button {
+                margin-top: 18px;
+                padding: 12px 20px;
+                background: linear-gradient(135deg, #4ADE80, #06b77a);
+                color: #012;
+                border: 2px solid #ffffff22;
+                border-radius: 12px;
+                font-size: 16px;
+                cursor: pointer;
+                pointer-events: auto;
+                box-shadow: 0 6px 0 rgba(0,0,0,0.3);
+            }
+            .start-button:active { transform: translateY(2px) }
             
             @keyframes blink {
                 0%, 100% { opacity: 1; }
@@ -430,6 +447,78 @@ export default class GameManager {
             }
         `
         document.head.appendChild(style)
+
+        // Hook up Start button click
+        const startBtn = document.getElementById('start-button')
+        if (startBtn) {
+            startBtn.addEventListener('click', () => this.startGame())
+        }
+
+        // Visible Restart button (always available)
+        let visibleRestart = document.getElementById('restart-button')
+        if (!visibleRestart) {
+            visibleRestart = document.createElement('button')
+            visibleRestart.id = 'restart-button'
+            visibleRestart.title = 'Restart Game'
+            visibleRestart.innerText = '↺'
+            visibleRestart.style.position = 'fixed'
+            visibleRestart.style.top = '16px'
+            visibleRestart.style.left = '16px'
+            visibleRestart.style.zIndex = 200
+            visibleRestart.style.padding = '10px'
+            visibleRestart.style.borderRadius = '50%'
+            visibleRestart.style.background = '#00BFA5'
+            visibleRestart.style.color = '#fff'
+            visibleRestart.style.border = 'none'
+            visibleRestart.style.fontSize = '18px'
+            visibleRestart.style.boxShadow = '0 6px 0 rgba(0,0,0,0.2)'
+            visibleRestart.style.cursor = 'pointer'
+            visibleRestart.addEventListener('click', () => this.restartGame())
+            document.body.appendChild(visibleRestart)
+        }
+
+        // Mobile double-tap to reveal restart button
+        let lastTap = 0
+        const doubleTapThreshold = 350
+
+        const showMobileRestart = () => {
+            // If restart button already exists, flash it
+            let btn = document.getElementById('mobile-restart')
+            if (!btn) {
+                btn = document.createElement('button')
+                btn.id = 'mobile-restart'
+                btn.textContent = 'Restart'
+                btn.style.position = 'fixed'
+                btn.style.top = '16px'
+                btn.style.right = '16px'
+                btn.style.zIndex = 200
+                btn.style.padding = '10px 14px'
+                btn.style.borderRadius = '10px'
+                btn.style.background = '#FF3D00'
+                btn.style.color = 'white'
+                btn.style.border = 'none'
+                btn.style.fontSize = '14px'
+                btn.style.boxShadow = '0 6px 0 rgba(0,0,0,0.2)'
+                btn.addEventListener('click', () => {
+                    this.restartGame()
+                    btn.remove()
+                })
+                document.body.appendChild(btn)
+                // auto-hide after 6s
+                setTimeout(() => { btn.remove() }, 6000)
+            } else {
+                // briefly pulse
+                btn.animate([{ transform: 'scale(1)' }, { transform: 'scale(1.05)' }, { transform: 'scale(1)' }], { duration: 300 })
+            }
+        }
+
+        window.addEventListener('touchend', (e) => {
+            const now = Date.now()
+            if (now - lastTap <= doubleTapThreshold) {
+                showMobileRestart()
+            }
+            lastTap = now
+        })
     }
 
     spawnCoins() {
@@ -438,24 +527,24 @@ export default class GameManager {
             this.collectibleGroup.remove(coin)
         })
         this.collectibles = []
-        
+
         // Define coin positions based on difficulty
         const coinPositions = this.getCoinPositions()
-        
+
         coinPositions.forEach(pos => {
             this.createCoin(pos.x, pos.z, pos.y || 1.5)
         })
-        
+
         this.totalCoins = this.collectibles.length
         this.updateUI()
     }
-    
+
     getCoinPositions() {
         // Coins positioned around the circular track (radius ~50)
         const positions = []
         const trackRadius = 50
         const numCoinsOnTrack = 24
-        
+
         // Coins around the main track
         for (let i = 0; i < numCoinsOnTrack; i++) {
             const angle = (i / numCoinsOnTrack) * Math.PI * 2
@@ -465,12 +554,12 @@ export default class GameManager {
             const z = Math.sin(angle) * (trackRadius + radiusVariation)
             positions.push({ x, z })
         }
-        
+
         // Extra coins near starting area
         positions.push({ x: 60, z: 0 })
         positions.push({ x: 65, z: 5 })
         positions.push({ x: 65, z: -5 })
-        
+
         // Coins on the inside of the track (bonus/shortcut coins)
         for (let i = 0; i < 8; i++) {
             const angle = (i / 8) * Math.PI * 2
@@ -478,14 +567,14 @@ export default class GameManager {
             const z = Math.sin(angle) * 30
             positions.push({ x, z })
         }
-        
+
         // A few coins in the very center
         positions.push({ x: 0, z: 0 })
         positions.push({ x: 5, z: 5 })
         positions.push({ x: -5, z: 5 })
         positions.push({ x: 5, z: -5 })
         positions.push({ x: -5, z: -5 })
-        
+
         return positions
     }
 
@@ -493,7 +582,7 @@ export default class GameManager {
 
     createCoin(x, z, y = 1.5) {
         const coinGroup = new THREE.Group()
-        
+
         // Main coin body - more vibrant gold
         const coinGeometry = new THREE.CylinderGeometry(0.6, 0.6, 0.2, 16)
         const coinMaterial = new THREE.MeshToonMaterial({
@@ -504,7 +593,7 @@ export default class GameManager {
         const coin = new THREE.Mesh(coinGeometry, coinMaterial)
         coin.rotation.x = Math.PI / 2
         coinGroup.add(coin)
-        
+
         // Star detail in center
         const starGeometry = new THREE.CylinderGeometry(0.25, 0.25, 0.21, 5)
         const starMaterial = new THREE.MeshToonMaterial({
@@ -515,67 +604,67 @@ export default class GameManager {
         const star = new THREE.Mesh(starGeometry, starMaterial)
         star.rotation.x = Math.PI / 2
         coinGroup.add(star)
-        
+
         coinGroup.position.set(x, y, z)
-        
+
         coinGroup.userData = {
             type: 'coin',
             value: this.settings.coinValue,
             collected: false,
             baseY: y
         }
-        
+
         this.collectibleGroup.add(coinGroup)
         this.collectibles.push(coinGroup)
-        
+
         return coinGroup
     }
-    
+
     // Game state methods
     startGame() {
         if (this.state !== 'ready') return
-        
+
         this.state = 'playing'
         this.timeRemaining = this.settings.timeLimit
         this.score = 0
         this.coinsCollected = 0
         this.lastUpdate = Date.now()
-        
+
         // Resume audio context if suspended
         if (this.audioContext?.state === 'suspended') {
             this.audioContext.resume()
         }
-        
+
         // Play start sound
         this.playSound(523, 0.1) // C5
         setTimeout(() => this.playSound(659, 0.1), 100) // E5
         setTimeout(() => this.playSound(784, 0.2), 200) // G5
-        
+
         // Hide start screen, show HUD
         document.getElementById('start-screen').classList.add('hidden')
         document.getElementById('game-hud').classList.remove('hidden')
-        
+
         this.updateUI()
     }
-    
+
     pauseGame() {
         if (this.state !== 'playing') return
-        
+
         this.state = 'paused'
         document.getElementById('pause-screen').classList.remove('hidden')
     }
-    
+
     resumeGame() {
         if (this.state !== 'paused') return
-        
+
         this.state = 'playing'
         this.lastUpdate = Date.now()
         document.getElementById('pause-screen').classList.add('hidden')
     }
-    
+
     gameOver(victory = false) {
         this.state = 'gameOver'
-        
+
         // Play game over sound
         if (victory) {
             this.playSound(784, 0.15) // G5
@@ -586,7 +675,7 @@ export default class GameManager {
             setTimeout(() => this.playSound(330, 0.2), 150) // E4
             setTimeout(() => this.playSound(262, 0.4), 300) // C4
         }
-        
+
         // Update best score
         if (this.score > this.bestScore) {
             this.bestScore = this.score
@@ -595,7 +684,7 @@ export default class GameManager {
         } else {
             document.getElementById('new-best').classList.add('hidden')
         }
-        
+
         // Update game over screen
         const title = document.getElementById('gameover-title')
         if (victory) {
@@ -609,16 +698,16 @@ export default class GameManager {
             title.textContent = "⏰ TIME'S UP!"
             title.classList.remove('victory')
         }
-        
+
         document.getElementById('final-coins').textContent = this.coinsCollected
         document.getElementById('final-laps').textContent = this.currentLap
         document.getElementById('final-score').textContent = this.score
-        
+
         // Show game over screen
         document.getElementById('game-hud').classList.add('hidden')
         document.getElementById('gameover-screen').classList.remove('hidden')
     }
-    
+
     restartGame() {
         // Reset game state
         this.state = 'ready'
@@ -626,44 +715,44 @@ export default class GameManager {
         this.coinsCollected = 0
         this.timeRemaining = this.settings.timeLimit
         this.lastUpdate = Date.now()
-        
+
         // Reset lap tracking
         this.currentLap = 1
         this.checkpointsPassed = 0
         this.lastCheckpointAngle = 0
-        
+
         // Reset combo
         this.combo = 0
         this.comboTimer = 0
-        
+
         // Respawn coins
         this.spawnCoins()
-        
+
         // Update lap display
         const lapEl = document.getElementById('lap-count')
         if (lapEl) lapEl.textContent = '1'
-        
+
         // Reset UI
         document.getElementById('gameover-screen')?.classList.add('hidden')
         document.getElementById('pause-screen')?.classList.add('hidden')
         document.getElementById('game-hud')?.classList.add('hidden')
         document.getElementById('start-screen')?.classList.remove('hidden')
         document.getElementById('combo-display')?.classList.add('hidden')
-        
+
         const bestScoreEl = document.getElementById('best-score-value')
         if (bestScoreEl) {
             bestScoreEl.textContent = this.bestScore
         }
-        
+
         this.updateUI()
     }
 
     collectCoin(coin) {
         if (coin.userData.collected || this.state !== 'playing') return
-        
+
         coin.userData.collected = true
         this.coinsCollected++
-        
+
         // Combo system - collect coins quickly for multiplier!
         const now = Date.now()
         if (now - this.lastCoinTime < 1500) {
@@ -674,15 +763,15 @@ export default class GameManager {
             this.comboTimer = this.comboTimeout
         }
         this.lastCoinTime = now
-        
+
         // Score with combo multiplier
         const coinScore = coin.userData.value * Math.max(1, this.combo)
         this.score += coinScore
-        
+
         // Play coin sound (ascending pitch based on combo)
         const pitch = 800 + (this.combo * 100)
         this.playSound(pitch, 0.1)
-        
+
         // Show combo display if combo > 1
         if (this.combo > 1) {
             const comboDisplay = document.getElementById('combo-display')
@@ -696,7 +785,7 @@ export default class GameManager {
                 comboDisplay.style.animation = 'comboPop 0.5s ease'
             }
         }
-        
+
         // Update UI with animation
         const coinCount = document.getElementById('coin-count')
         if (coinCount) {
@@ -704,12 +793,12 @@ export default class GameManager {
             coinCount.parentElement.classList.add('coin-pop')
             setTimeout(() => coinCount.parentElement.classList.remove('coin-pop'), 300)
         }
-        
+
         document.getElementById('score-value').textContent = this.score
-        
+
         // Animate coin collection
         this.animateCoinCollection(coin)
-        
+
         // Check for victory - trigger epic celebration!
         if (this.coinsCollected >= this.totalCoins) {
             // Bonus for time remaining
@@ -717,12 +806,12 @@ export default class GameManager {
             this.triggerVictoryCelebration()
         }
     }
-    
+
     triggerVictoryCelebration() {
         // Epic fireworks celebration!
         this.fireworks = []
         this.celebrationActive = true
-        
+
         // Play victory fanfare
         const fanfare = [
             { freq: 523, delay: 0 },    // C5
@@ -735,32 +824,32 @@ export default class GameManager {
         fanfare.forEach(note => {
             setTimeout(() => this.playSound(note.freq, 0.2), note.delay)
         })
-        
+
         // Launch fireworks for 3 seconds
         const launchFirework = () => {
             if (!this.celebrationActive) return
-            
+
             const colors = [0xFF0000, 0x00FF00, 0x0000FF, 0xFFFF00, 0xFF00FF, 0x00FFFF, 0xFFAA00, 0xFF1493]
             const x = (Math.random() - 0.5) * 80
             const z = (Math.random() - 0.5) * 80
             const color = colors[Math.floor(Math.random() * colors.length)]
-            
+
             this.createFirework(x, z, color)
             this.playSound(200 + Math.random() * 300, 0.05, 'sine')
         }
-        
+
         // Launch multiple fireworks
         for (let i = 0; i < 30; i++) {
             setTimeout(launchFirework, i * 100)
         }
-        
+
         // End celebration and show game over after 3 seconds
         setTimeout(() => {
             this.celebrationActive = false
             this.gameOver(true)
         }, 3000)
     }
-    
+
     createFirework(x, z, color) {
         const particleCount = 30
         const geometry = new THREE.SphereGeometry(0.2, 8, 8)
@@ -769,19 +858,19 @@ export default class GameManager {
             transparent: true,
             opacity: 1
         })
-        
+
         const particles = []
         const startY = 15 + Math.random() * 10
-        
+
         for (let i = 0; i < particleCount; i++) {
             const particle = new THREE.Mesh(geometry, material.clone())
             particle.position.set(x, startY, z)
-            
+
             // Explode in sphere pattern
             const theta = Math.random() * Math.PI * 2
             const phi = Math.random() * Math.PI
             const speed = 0.3 + Math.random() * 0.4
-            
+
             particle.userData = {
                 velocity: new THREE.Vector3(
                     Math.sin(phi) * Math.cos(theta) * speed,
@@ -790,15 +879,15 @@ export default class GameManager {
                 ),
                 life: 1
             }
-            
+
             this.scene.add(particle)
             particles.push(particle)
         }
-        
+
         // Animate firework
         const animate = () => {
             let allDead = true
-            
+
             particles.forEach(p => {
                 if (p.userData.life > 0) {
                     allDead = false
@@ -809,7 +898,7 @@ export default class GameManager {
                     p.scale.setScalar(p.userData.life)
                 }
             })
-            
+
             if (!allDead) {
                 requestAnimationFrame(animate)
             } else {
@@ -821,17 +910,17 @@ export default class GameManager {
                 })
             }
         }
-        
+
         animate()
     }
 
     animateCoinCollection(coin) {
         const startY = coin.position.y
         let progress = 0
-        
+
         const animate = () => {
             progress += 0.08
-            
+
             if (progress < 1) {
                 coin.position.y = startY + progress * 3
                 coin.scale.setScalar(1 - progress)
@@ -843,46 +932,46 @@ export default class GameManager {
                 if (index > -1) this.collectibles.splice(index, 1)
             }
         }
-        
+
         animate()
     }
 
     checkCollisions(carPosition) {
         if (!carPosition || this.state !== 'playing') return
-        
+
         const carPos = new THREE.Vector3()
         if (carPosition.position) {
             carPos.copy(carPosition.position)
         } else {
             carPos.copy(carPosition)
         }
-        
+
         // Check coin collisions
         this.collectibles.forEach(coin => {
             if (coin.userData.collected) return
-            
+
             const distance = carPos.distanceTo(coin.position)
             if (distance < 2.5) {
                 this.collectCoin(coin)
             }
         })
     }
-    
+
     updateUI() {
         const coinCount = document.getElementById('coin-count')
         const totalCoins = document.getElementById('total-coins')
         const scoreValue = document.getElementById('score-value')
         const timeEl = document.getElementById('time-remaining')
-        
+
         if (coinCount) coinCount.textContent = this.coinsCollected
         if (totalCoins) totalCoins.textContent = this.totalCoins
         if (scoreValue) scoreValue.textContent = this.score
-        
+
         if (timeEl) {
             const minutes = Math.floor(this.timeRemaining / 60)
             const seconds = Math.floor(this.timeRemaining % 60)
             timeEl.textContent = `${minutes}:${seconds.toString().padStart(2, '0')}`
-            
+
             // Warning when low on time
             if (this.timeRemaining <= 30) {
                 timeEl.parentElement.classList.add('timer-warning')
@@ -891,7 +980,7 @@ export default class GameManager {
             }
         }
     }
-    
+
     updateSettings(settings) {
         if (settings.coinValue !== undefined) this.settings.coinValue = settings.coinValue
         if (settings.timeLimit !== undefined) {
@@ -901,7 +990,7 @@ export default class GameManager {
             }
         }
     }
-    
+
     // Persistence
     loadBestScore() {
         try {
@@ -910,7 +999,7 @@ export default class GameManager {
             return 0
         }
     }
-    
+
     saveBestScore() {
         try {
             localStorage.setItem('coinRacerBestScore', this.bestScore.toString())
@@ -923,16 +1012,16 @@ export default class GameManager {
         const now = Date.now()
         const deltaTime = (now - this.lastUpdate) / 1000
         this.lastUpdate = now
-        
+
         // Only update timer when playing
         if (this.state === 'playing') {
             this.timeRemaining -= deltaTime
-            
+
             if (this.timeRemaining <= 0) {
                 this.timeRemaining = 0
                 this.gameOver(false)
             }
-            
+
             // Update combo timer
             if (this.combo > 0) {
                 this.comboTimer -= deltaTime
@@ -941,30 +1030,30 @@ export default class GameManager {
                     document.getElementById('combo-display')?.classList.add('hidden')
                 }
             }
-            
+
             // Update speed display
             this.updateSpeedDisplay()
-            
+
             // Update lap tracking
             this.updateLapTracking()
-            
+
             this.updateUI()
         }
-        
+
         // Animate coins
         const elapsed = this.time.elapsed * 0.001
-        
+
         this.collectibles.forEach(coin => {
             if (coin.userData.collected) return
-            
+
             // Rotate
             coin.rotation.y += 0.03
-            
+
             // Bob up and down
             const bobOffset = Math.sin(elapsed * 3 + coin.position.x * 0.1) * 0.15
             coin.position.y = coin.userData.baseY + bobOffset
         })
-        
+
         // Check coin collisions (only when playing)
         if (this.state === 'playing') {
             const car = this.experience.world?.simpleCar
@@ -973,25 +1062,25 @@ export default class GameManager {
             }
         }
     }
-    
+
     updateSpeedDisplay() {
         const car = this.experience.world?.simpleCar
         if (!car?.vehicle?.chassisBody) return
-        
+
         const vel = car.vehicle.chassisBody.velocity
         const speed = Math.sqrt(vel.x * vel.x + vel.z * vel.z)
         const kmh = Math.floor(speed * 10) // Convert to reasonable km/h display
-        
+
         const speedEl = document.getElementById('speed-value')
         if (speedEl) {
             speedEl.textContent = kmh
         }
     }
-    
+
     updateLapTracking() {
         const car = this.experience.world?.simpleCar
         if (!car?.chassisMesh) return
-        
+
         const pos = car.chassisMesh.position
 
         // Only count laps when crossing the checkered start/finish line
@@ -1017,7 +1106,7 @@ export default class GameManager {
 
         this.lastStartFinishSide = side
     }
-    
+
     completeLap() {
         if (this.currentLap >= this.maxLaps) {
             // All laps complete - trigger victory!
@@ -1026,11 +1115,11 @@ export default class GameManager {
         } else {
             this.currentLap++
             this.score += this.lapCompleteBonus
-            
+
             // Play lap complete sound
             this.playSound(880, 0.1)
             setTimeout(() => this.playSound(1100, 0.15), 100)
-            
+
             // Update UI
             const lapEl = document.getElementById('lap-count')
             if (lapEl) {
@@ -1038,12 +1127,12 @@ export default class GameManager {
                 lapEl.parentElement.classList.add('coin-pop')
                 setTimeout(() => lapEl.parentElement.classList.remove('coin-pop'), 300)
             }
-            
+
             // Respawn coins for new lap
             this.respawnCoinsForNewLap()
         }
     }
-    
+
     respawnCoinsForNewLap() {
         // Re-enable collected coins for the new lap
         this.collectibles.forEach(coin => {
@@ -1053,7 +1142,7 @@ export default class GameManager {
                 coin.scale.setScalar(1)
             }
         })
-        
+
         this.coinsCollected = 0
         document.getElementById('coin-count').textContent = '0'
     }

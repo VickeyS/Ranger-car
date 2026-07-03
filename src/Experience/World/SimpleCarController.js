@@ -31,9 +31,35 @@ export default class SimpleCarController {
     }
 
     setupTouchControls() {
-        // Map touch buttons to actions
+        // Map touch buttons to actions (includes design controls)
         const controls = document.querySelectorAll('#mobile-controls .ctl')
         if (!controls || controls.length === 0) return
+
+        // Available designs
+        this.designs = ['Kart', 'Cat']
+        // Determine current design index from model
+        const current = this.simpleCar.simpleCarModel && this.simpleCar.simpleCarModel.currentDesign ? this.simpleCar.simpleCarModel.currentDesign : 'Kart'
+        this.currentDesignIndex = Math.max(0, this.designs.indexOf(current))
+
+        const designLabelEl = document.getElementById('design-label')
+        if (designLabelEl) designLabelEl.textContent = this.designs[this.currentDesignIndex]
+
+        const setDesignByIndex = (idx) => {
+            idx = (idx + this.designs.length) % this.designs.length
+            this.currentDesignIndex = idx
+            const design = this.designs[idx]
+            if (this.simpleCar?.simpleCarModel?.setDesign) {
+                this.simpleCar.simpleCarModel.setDesign(design)
+            }
+            // Re-apply currently selected color so new design matches UI
+            const color = this.experience?.gameSettings?.getSettings()?.appearance?.carColor
+            if (color && this.simpleCar?.updateColor) {
+                this.simpleCar.updateColor(color)
+            } else if (color && this.simpleCar?.simpleCarModel?.setColor) {
+                this.simpleCar.simpleCarModel.setColor(color)
+            }
+            if (designLabelEl) designLabelEl.textContent = design
+        }
 
         const actionDown = (action) => {
             switch (action) {
@@ -61,6 +87,12 @@ export default class SimpleCarController {
                     break
                 case 'color':
                     this.changeCarColor()
+                    break
+                case 'design-next':
+                    setDesignByIndex(this.currentDesignIndex + 1)
+                    break
+                case 'design-prev':
+                    setDesignByIndex(this.currentDesignIndex - 1)
                     break
             }
         }
